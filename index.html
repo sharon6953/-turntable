@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>輪盤抽獎 · 數字組循環</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+            user-select: none;
+        }
+        body {
+            background: linear-gradient(145deg, #2b3a4a 0%, #1d2a35 100%);
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .game-container {
+            background: #314a5e;
+            padding: 30px 20px 40px;
+            border-radius: 60px 60px 40px 40px;
+            box-shadow: 0 20px 30px rgba(0,0,0,0.6), inset 0 2px 5px rgba(255,255,255,0.2);
+            border: 3px solid #ffcf9a;
+        }
+        h1 {
+            text-align: center;
+            margin: 0 0 15px 0;
+            font-size: 2.4rem;
+            font-weight: 700;
+            color: #ffedd1;
+            text-shadow: 4px 4px 0 #b45f2b, 7px 7px 0 #1a1a2e;
+            letter-spacing: 4px;
+            word-break: keep-all;
+        }
+        .wheel-wrapper {
+            position: relative;
+            width: 400px;
+            height: 400px;
+            margin: 0 auto 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            background: #fcf3e4;
+            border-radius: 50%;
+            box-shadow: 0 0 0 10px #ffb882, 0 20px 30px rgba(0,0,0,0.5), inset 0 5px 15px rgba(255,255,200,0.6);
+            transition: box-shadow 0.1s;
+        }
+        .pointer {
+            position: absolute;
+            top: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 28px solid transparent;
+            border-right: 28px solid transparent;
+            border-top: 48px solid #e63946;
+            filter: drop-shadow(0 8px 5px rgba(0,0,0,0.4));
+            z-index: 10;
+            pointer-events: none;
+        }
+        .pointer::after {
+            content: "";
+            position: absolute;
+            top: -52px;
+            left: -12px;
+            width: 24px;
+            height: 24px;
+            background: radial-gradient(circle, #f8d35f 20%, #d4a11e 90%);
+            border-radius: 50%;
+            box-shadow: 0 2px 8px black;
+        }
+        .btn-start {
+            display: block;
+            width: 240px;
+            margin: 10px auto 25px;
+            padding: 20px 20px;
+            background: #f3b33d;
+            border: none;
+            border-radius: 60px;
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: #2d2017;
+            letter-spacing: 8px;
+            text-shadow: 2px 2px 0 #ffe19e;
+            box-shadow: 0 12px 0 #9e601d, 0 10px 20px black;
+            cursor: pointer;
+            transition: 0.07s linear;
+            border: 2px solid #ffdcb5;
+        }
+        .btn-start:active {
+            transform: translateY(8px);
+            box-shadow: 0 4px 0 #9e601d, 0 10px 20px black;
+        }
+        .btn-start:disabled {
+            opacity: 0.5;
+            transform: translateY(6px);
+            box-shadow: 0 6px 0 #7a4a18, 0 8px 12px black;
+            pointer-events: none;
+        }
+        .banner-area {
+            position: relative;
+            height: 60px;
+            margin-top: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .result-banner {
+            background: #f7e05e;
+            color: #1f3a4b;
+            font-size: 2.2rem;
+            font-weight: 900;
+            padding: 10px 40px;
+            border-radius: 50px;
+            box-shadow: 0 8px 0 #b07c2e, 0 10px 20px rgba(0,0,0,0.3);
+            border: 3px solid white;
+            text-align: center;
+            min-width: 240px;
+            letter-spacing: 4px;
+            transition: opacity 0.25s, transform 0.2s;
+            opacity: 0;
+            transform: scale(0.7);
+            pointer-events: none;
+            position: absolute;
+            top: 0;
+            background: linear-gradient(145deg, #ffe28c, #fdbf4f);
+        }
+        .result-banner.show {
+            opacity: 1;
+            transform: scale(1);
+            pointer-events: none;
+        }
+        .footer-note {
+            text-align: center;
+            color: #cfe3cd;
+            font-size: 1.1rem;
+            background: #1f343b;
+            padding: 6px 18px;
+            border-radius: 40px;
+            width: fit-content;
+            margin: 15px auto 0;
+            border: 1px solid #ffad70;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>⚡ 數字輪盤 ⚡</h1>
+
+        <!-- 轉盤區域 + 固定指針 -->
+        <div class="wheel-wrapper">
+            <canvas id="wheelCanvas" width="400" height="400"></canvas>
+            <div class="pointer"></div>
+        </div>
+
+        <!-- 開始按鈕 -->
+        <button class="btn-start" id="spinBtn" autofocus>開始</button>
+
+        <!-- 橫幅訊息 -->
+        <div class="banner-area">
+            <div id="resultBanner" class="result-banner">第1組</div>
+        </div>
+
+        <div class="footer-note">↻ 1-2 · 3-4 · 5-6 · 7-8 循環 ↻</div>
+    </div>
+
+    <script>
+        (function() {
+            // ---------- 設定與變數 ----------
+            const canvas = document.getElementById('wheelCanvas');
+            const ctx = canvas.getContext('2d');
+            const spinBtn = document.getElementById('spinBtn');
+            const banner = document.getElementById('resultBanner');
+
+            // 轉盤狀態
+            let rotationAngle = 0.0;               // 當前旋轉角度 (0 ~ 2PI)
+            let currentNumbers = [1, 2];            // 預設顯示 1 與 2
+            let clickCounter = 0;                    // 第幾次點擊 (0起:第一次點就是[1,2])
+            let isSpinning = false;                   // 動畫鎖
+            let animFrame = null;                     // requestAnimationFrame id
+
+            // 固定指針方向 (向上 = -PI/2 弧度)
+            const POINTER_ANGLE = -Math.PI / 2;       //  -90°
+
+            // ---------- 輔助函式: 依照點擊次數取得數字組 ----------
+            function getNumberPairByCount(count) {
+                const mod = count % 4;   // 0,1,2,3 循環
+                switch (mod) {
+                    case 0: return [1, 2];
+                    case 1: return [3, 4];
+                    case 2: return [5, 6];
+                    case 3: return [7, 8];
+                    default: return [1, 2];
+                }
+            }
+
+            // ---------- 繪製轉盤 (根據角度和目前數字) ----------
+            function drawWheel(angle, numbers) {
+                ctx.clearRect(0, 0, 400, 400);
+                const centerX = 200, centerY = 200;
+                const radius = 170;         // 半徑
+                const textRadius = 115;      // 數字顯示半徑 (離中心)
+
+                // 繪製兩個扇形 (第一個扇形 angle ~ angle+PI, 第二個 angle+PI ~ angle+2PI)
+                // 扇形1
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, angle, angle + Math.PI);
+                ctx.closePath();
+                ctx.fillStyle = '#ff9f7c';    // 暖橘色
+                ctx.fill();
+                ctx.strokeStyle = '#fff2d7';
+                ctx.lineWidth = 4;
+                ctx.stroke();
+
+                // 扇形2
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, angle + Math.PI, angle + 2 * Math.PI);
+                ctx.closePath();
+                ctx.fillStyle = '#66b8cc';    // 湖水藍
+                ctx.fill();
+                ctx.strokeStyle = '#fff2d7';
+                ctx.lineWidth = 4;
+                ctx.stroke();
+
+                // 繪製中心小金球
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, 28, 0, 2 * Math.PI);
+                ctx.fillStyle = '#fad275';
+                ctx.shadowColor = '#a65218';
+                ctx.shadowBlur = 16;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                ctx.shadowColor = 'transparent';
+                ctx.strokeStyle = '#ffdcb0';
+                ctx.lineWidth = 5;
+                ctx.stroke();
+
+                // 繪製兩個數字 (各自在扇形的中央方向)
+                // 第一個數字中心角度: angle + PI/2
+                // 第二個數字中心角度: angle + 3*PI/2
+                const angles = [angle + Math.PI / 2, angle + 3 * Math.PI / 2];
+
+                ctx.font = 'bold 60px "Segoe UI", "Microsoft JhengHei", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.shadowColor = '#333';
+                ctx.shadowBlur = 10;
+                ctx.shadowOffsetX = 3;
+                ctx.shadowOffsetY = 3;
+
+                for (let i = 0; i < 2; i++) {
+                    const num = numbers[i];
+                    const ang = angles[i];
+                    const x = centerX + Math.cos(ang) * textRadius;
+                    const y = centerY + Math.sin(ang) * textRadius;
+
+                    // 數字背景光暈
+                    ctx.fillStyle = '#fffff0';
+                    ctx.fillText(num.toString(), x, y);
+                    // 主要數字深色
+                    ctx.fillStyle = '#1f2c3c';
+                    ctx.shadowBlur = 12;
+                    ctx.shadowColor = '#ffe29c';
+                    ctx.fillText(num.toString(), x, y);
+                }
+
+                // 外圈裝飾
+                ctx.shadowBlur = 0;
+                ctx.shadowOffsetX = 0;
+                ctx.shadowOffsetY = 0;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius + 6, 0, 2 * Math.PI);
+                ctx.strokeStyle = '#ffcf81';
+                ctx.lineWidth = 6;
+                ctx.stroke();
+
+                // 細部分割線
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(centerX + Math.cos(angle) * radius, centerY + Math.sin(angle) * radius);
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 4;
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(centerX + Math.cos(angle + Math.PI) * radius, centerY + Math.sin(angle + Math.PI) * radius);
+                ctx.stroke();
+            }
+
+            // ---------- 顯示結果橫幅 (繁體) ----------
+            function showBanner(number) {
+                banner.innerText = `第 ${number} 組`;
+                banner.classList.add('show');
+                // 2.5秒後淡出
+                clearTimeout(window.bannerTimer);
+                window.bannerTimer = setTimeout(() => {
+                    banner.classList.remove('show');
+                }, 2200);
+            }
+
+            // ---------- 動畫: 從目前角度旋轉到 targetModAngle (目標模2pi角度) ----------
+            function startSpinAnimation(targetModAngle, duration = 2000) {
+                if (isSpinning) return;
+                isSpinning = true;
+                spinBtn.disabled = true;
+
+                const startRot = rotationAngle;                // 當前 0~2pi
+                // 加入足夠圈數 (至少6圈) 讓目標總角度大於起始總角度
+                const minTurns = 6;
+                // 計算起始絕對角度 (其實就是 startRot，但我們需要決定基準圈數)
+                // 為了使轉動順暢且多圈，目標絕對角度 = targetModAngle + 2*PI * N，其中 N 要讓目標 > startRot 並且至少多minTurns圈
+                let baseTurns = Math.floor(startRot / (2 * Math.PI));   // 目前已經過的圈數 (不計小數)
+                // 希望結束時至少比 startRot 多 minTurns 圈，所以目標圈數 = baseTurns + minTurns + 1 (如果targetModAngle小於startRot的模還要加)
+                let targetTurns = baseTurns + minTurns;
+                // 但若 targetModAngle 非常小，而 startRot 接近2PI，需要確保最終角度仍大於 startRot
+                let targetAbs = targetModAngle + targetTurns * 2 * Math.PI;
+                // 萬一 targetAbs 仍小於 startRot (極端情況)，再加一圈
+                while (targetAbs < startRot) {
+                    targetAbs += 2 * Math.PI;
+                }
+
+                const startTime = performance.now();
+
+                // 動畫更新函數
+                function animate(now) {
+                    const elapsed = now - startTime;
+                    let progress = Math.min(elapsed / duration, 1);   // 0→1
+
+                    // 使用 easeOutCubic 讓停止更自然: 1 - (1-t)^3
+                    const easeProgress = 1 - Math.pow(1 - progress, 3);
+                    const currentTotal = startRot + (targetAbs - startRot) * easeProgress;
+                    rotationAngle = currentTotal % (2 * Math.PI);     // 保留模2pi
+
+                    drawWheel(rotationAngle, currentNumbers);
+
+                    if (progress < 1) {
+                        animFrame = requestAnimationFrame(animate);
+                    } else {
+                        // 動畫完成: 確保精準停在目標角度
+                        rotationAngle = targetModAngle;   // 歸到精確模2pi
+                        drawWheel(rotationAngle, currentNumbers);
+
+                        // 解鎖按鈕
+                        isSpinning = false;
+                        spinBtn.disabled = false;
+                        cancelAnimationFrame(animFrame);
+                        animFrame = null;
+
+                        // 顯示結果橫幅 (抽中的數字就是 currentNumbers[resultIndex]，但我們在啟動動畫前已經計算好存於變數)
+                        // 注意: 在動畫開始前我們已將抽中數字暫存於 pickedNumber
+                        if (window.pickedNumber !== undefined) {
+                            showBanner(window.pickedNumber);
+                        }
+
+                        // 點擊次數 +1 (為下一次做準備)
+                        clickCounter++;
+                    }
+                }
+
+                animFrame = requestAnimationFrame(animate);
+            }
+
+            // ---------- 按下開始按鈕 ----------
+            function handleSpin() {
+                if (isSpinning) return;          // 動畫中不能點
+
+                // 1. 根據目前點擊次數取得對應數字組
+                const pair = getNumberPairByCount(clickCounter);
+                currentNumbers = pair;            // 更新全域數字
+
+                // 2. 立即重繪轉盤 (更新顯示數字，角度不變)
+                drawWheel(rotationAngle, currentNumbers);
+
+                // 3. 隨機決定抽中哪一個數字 (0 或 1)
+                const resultIndex = Math.random() < 0.5 ? 0 : 1;
+                const picked = currentNumbers[resultIndex];
+                window.pickedNumber = picked;      // 暫存供動畫結束後使用
+
+                // 4. 計算停止時目標角度 (讓指針指向所選扇區內部，隨機偏移但絕不越界)
+                // 指針固定 POINTER_ANGLE = -PI/2
+                // 我們需要旋轉角 rot 使得相對角度 rel = (POINTER_ANGLE - rot + 2PI) % 2PI 落在 [idx*PI, (idx+1)*PI]
+                // 設 idx = resultIndex
+                const idx = resultIndex;           // 0 或 1
+                // 扇區範圍下限, 上限 (保留邊界 0.1 rad 以免壓線)
+                const lowerBound = idx * Math.PI + 0.12;
+                const upperBound = (idx + 1) * Math.PI - 0.12;
+                // 隨機偏移 (介於 lowerBound 與 upperBound)
+                const rel = lowerBound + Math.random() * (upperBound - lowerBound);
+                // 由 rel 反推 rotationAngle:  POINTER_ANGLE - rot ≡ rel (mod 2PI)  => rot = POINTER_ANGLE - rel (+ 2PI 調整至0~2PI)
+                let rawRot = POINTER_ANGLE - rel;
+                // 規化至 0 ~ 2PI
+                let targetRot = ((rawRot % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+
+                // 5. 開始旋轉動畫 (目標角度 targetRot)
+                startSpinAnimation(targetRot, 2000);   // 2秒
+            }
+
+            // ---------- 事件綁定 ----------
+            spinBtn.addEventListener('click', handleSpin);
+
+            // ---------- 初始化轉盤 (第一次載入顯示1,2) ----------
+            drawWheel(rotationAngle, currentNumbers);
+
+            // 加上一些保險: 避免按鈕被連點 (但 disabled 已控制)
+            // 另外若在動畫中點擊，按鈕disabled不會觸發handleSpin
+        })();
+    </script>
+</body>
+</html>
